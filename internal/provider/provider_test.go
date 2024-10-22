@@ -17,8 +17,14 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 
 func testAccProviderConfig(url string) string {
 	return fmt.Sprintf(`
-	  provider "onepassword" {
-		url = "%s"
-		token = "<PASSWORD>"
-	  }`, url)
+data "aws_secretsmanager_secret" "onepassword_token" {
+  name = "onepassword-token"
+}
+data "aws_secretsmanager_secret_version" "onepassword_token" {
+  secret_id = data.aws_secretsmanager_secret.onepassword_token.id
+}
+provider "onepassword" {
+  url   = "%s"
+  token = data.aws_secretsmanager_secret_version.onepassword_token.secret_string
+}`, url)
 }

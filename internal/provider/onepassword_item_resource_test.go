@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -93,6 +94,61 @@ func TestAccItemResourceLogin(t *testing.T) {
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "username", expectedItem.Fields[0].Value),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "url", expectedItem.URLs[0].URL),
 					resource.TestCheckResourceAttrSet("onepassword_item.test-database", "password"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccItemResourceLogin2(t *testing.T) {
+	expectedItem := generateLoginItem()
+	expectedItem.Fields = removeField(expectedItem.Fields, 0)
+	expectedItem.Fields = removeField(expectedItem.Fields, 0)
+	//expectedItem.Fields[0].Value = "xxx"
+
+	expectedVault := op.Vault{
+		ID:          expectedItem.Vault.ID,
+		Name:        "VaultName",
+		Description: "This vault will be retrieved for testing",
+	}
+	expectedItemUpdate := generateLoginItem()
+	testServer := setupTestServer(expectedItem, expectedVault, t)
+	defer testServer.Close()
+	testServerRedeploy := setupTestServer(expectedItemUpdate, expectedVault, t)
+	defer testServerRedeploy.Close()
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig: func() {
+					fmt.Println("1 step Terraform code:")
+					fmt.Println(testAccProviderConfig(os.Getenv("TF_VAR_one_password_connect_endpoint")))
+					fmt.Println(testAccLoginResourceConfig(expectedItem))
+				},
+				Config: testAccProviderConfig(os.Getenv("TF_VAR_one_password_connect_endpoint") /*testServer.URL*/) + testAccLoginResourceConfig(expectedItem),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// verify local values
+					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItem.Title),
+					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItem.Category))),
+					//resource.TestCheckResourceAttr("onepassword_item.test-database", "username", ""),
+					resource.TestCheckResourceAttr("onepassword_item.test-database", "url", expectedItem.URLs[0].URL),
+					resource.TestCheckResourceAttrSet("onepassword_item.test-database", "password"),
+				),
+			},
+			{
+				PreConfig: func() {
+					fmt.Println("2. step Terraform code:")
+					fmt.Println(testAccProviderConfig(testServerRedeploy.URL))
+					xxx := expectedItemUpdate
+					xxx.Fields[0].Value = "xxx"
+					fmt.Println(testAccLoginResourceConfig(xxx))
+				},
+				Config: testAccProviderConfig("http://localhost:41324" /*testServerRedeploy.URL*/) + testAccLoginResourceConfig(expectedItemUpdate),
+				Check:  resource.ComposeAggregateTestCheckFunc(
+				//resource.TestCheckResourceAttr("onepassword_item.test-database", "username", "" /*expectedItemUpdate.Fields[0].Value*/),
+				//resource.TestCheckResourceAttr("onepassword_item.test-database", "username", "xxx"),
+				//resource.TestCheckResourceAttr("onepassword_item.test-database", "password", "" /*expectedItemUpdate.Fields[1].Value*/),
 				),
 			},
 		},
@@ -213,20 +269,41 @@ resource "onepassword_item" "test-database" {
 }`, expectedItem.Vault.ID, expectedItem.Title, strings.ToLower(string(expectedItem.Category)), expectedItem.Fields[0].Value)
 }
 
+func getFieldByName(item *op.Item, label string) *op.ItemField {
+	for _, f := range item.Fields {
+		if f == nil {
+			continue
+		}
+		if f.Label == label {
+			return f
+		}
+	}
+	return nil
+}
+
+func removeField(slice []*op.ItemField, s int) []*op.ItemField {
+	return append(slice[:s], slice[s+1:]...)
+}
+
 func testAccLoginResourceConfig(expectedItem *op.Item) string {
+	username := "null"
+	usernameField := getFieldByName(expectedItem, "username")
+	if usernameField != nil {
+		username = "\"" + usernameField.Value + "\""
+	}
 	return fmt.Sprintf(`
 
 data "onepassword_vault" "acceptance-tests" {
-	uuid = "%s"
+	name = "%s"
 }
 resource "onepassword_item" "test-database" {
   vault = data.onepassword_vault.acceptance-tests.uuid
   title = "%s"
   category = "%s"
-  username = "%s"
+  username = %s
   password_recipe {}
   url = "%s"
-}`, expectedItem.Vault.ID, expectedItem.Title, strings.ToLower(string(expectedItem.Category)), expectedItem.Fields[0].Value, expectedItem.URLs[0].URL)
+}`, target_vault /*expectedItem.Vault.ID*/, expectedItem.Title, strings.ToLower(string(expectedItem.Category)), username, expectedItem.URLs[0].URL)
 }
 
 func testAccSecureNoteResourceConfig(expectedItem *op.Item) string {

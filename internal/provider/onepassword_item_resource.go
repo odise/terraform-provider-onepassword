@@ -207,6 +207,10 @@ func (r *OnePasswordItemResource) Schema(ctx context.Context, req resource.Schem
 			"username": schema.StringAttribute{
 				MarkdownDescription: usernameDescription,
 				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					ValueModifier(),
+				},
 			},
 			"password": schema.StringAttribute{
 				MarkdownDescription: passwordDescription,
@@ -580,7 +584,7 @@ func itemToData(ctx context.Context, item *op.Item, data *OnePasswordItemResourc
 	for _, f := range item.Fields {
 		switch f.Purpose {
 		case op.FieldPurposeUsername:
-			data.Username = setStringValue(f.Value)
+			data.Username = types.StringValue(f.Value) //setStringValue(f.Value)
 		case op.FieldPurposePassword:
 			data.Password = setStringValue(f.Value)
 		case op.FieldPurposeNotes:
