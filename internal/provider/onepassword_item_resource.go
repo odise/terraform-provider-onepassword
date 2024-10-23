@@ -472,7 +472,10 @@ func itemToData(ctx context.Context, item *op.Item, data *OnePasswordItemResourc
 
 	for _, u := range item.URLs {
 		if u.Primary {
-			data.URL = types.StringValue(u.URL) // setStringValue(u.URL)
+			// we need to keep "" and can't set to null here because otherwise:
+			// When applying changes to onepassword_item.test-database, provider produced an
+			// unexpected new value: .username: was cty.StringVal(""), but now null.
+			data.URL = types.StringValue(u.URL)
 		}
 	}
 

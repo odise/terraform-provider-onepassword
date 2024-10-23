@@ -260,6 +260,8 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 						}
 						fmt.Println("item after Terraform apply:")
 						spew.Dump(item)
+						//fmt.Println("sleeping ....")
+						//time.Sleep(30 * time.Second)
 						return nil
 					},
 				),
