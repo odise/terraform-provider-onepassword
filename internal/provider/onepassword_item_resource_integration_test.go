@@ -158,9 +158,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			{
 				PreConfig: func() {
 					fmt.Println("1. step\nTerraform code:")
-					fmt.Println(testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem))
+					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem))
 				},
-				Config: testAccProviderConfig("http://localhost:8080" /*testServer.URL*/) + integrationLoginResourceConfig(expectedItem),
+				Config: integrationLoginProviderConfig("http://localhost:8080" /*testServer.URL*/) + integrationLoginResourceConfig(expectedItem),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// verify local values
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItem.Title),
@@ -195,9 +195,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 					spew.Dump(item)
 
 					fmt.Println("Terraform code:")
-					fmt.Println(testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem))
+					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem))
 				},
-				Config: testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem),
+				Config: integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItem.Title),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItem.Category))),
@@ -229,9 +229,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			{
 				PreConfig: func() {
 					fmt.Println("3. step\noverride the username with Terraform\nTerraform code:")
-					fmt.Println(testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdate))
+					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdate))
 				},
-				Config: testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdate),
+				Config: integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdate),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItemUpdate.Title),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItemUpdate.Category))),
@@ -243,9 +243,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			{
 				PreConfig: func() {
 					fmt.Println("4. step\nunset the username with Terraform\nTerraform code:")
-					fmt.Println(testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdateReset))
+					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdateReset))
 				},
-				Config: testAccProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdateReset),
+				Config: integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdateReset),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItemUpdateReset.Title),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItemUpdateReset.Category))),
@@ -323,6 +323,21 @@ output "item" {
 }
 `, target_vault /*expectedItem.Vault.ID*/, expectedItem.Title, strings.ToLower(string(expectedItem.Category)), username, url)
 }
+
+func integrationLoginProviderConfig(url string) string {
+	return fmt.Sprintf(`
+data "aws_secretsmanager_secret" "onepassword_token" {
+  name = "onepassword-token"
+}
+data "aws_secretsmanager_secret_version" "onepassword_token" {
+  secret_id = data.aws_secretsmanager_secret.onepassword_token.id
+}
+provider "onepassword" {
+  url   = "%s"
+  token = data.aws_secretsmanager_secret_version.onepassword_token.secret_string
+}`, url)
+}
+
 func getFieldByName(item *onepassword.Item, label string) *onepassword.ItemField {
 	for _, f := range item.Fields {
 		if f == nil {
