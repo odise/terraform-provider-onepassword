@@ -87,23 +87,11 @@ func setupTestServer(expectedItem *onepassword.Item, expectedVault onepassword.V
 			if r.URL.String() == fmt.Sprintf("/v1/vaults/%s/items", expectedItem.Vault.ID) {
 				itemToReturn := convertBodyToItem(r, t)
 				if itemToReturn.Category != onepassword.SecureNote {
-					passwordFielExists := false
-					passwordField := onepassword.ItemField{
+					itemField := onepassword.ItemField{
 						Label: "password",
-						Value: "somepasswordgeneratedby1password",
+						Value: "somepassword",
 					}
-					for _, f := range itemToReturn.Fields {
-						if f == nil {
-							continue
-						}
-						if f.Label == "password" {
-							passwordFielExists = true
-							f.Value = "somepasswordgeneratedby1password"
-						}
-					}
-					if passwordFielExists == false {
-						itemToReturn.Fields = append(itemToReturn.Fields, &passwordField)
-					}
+					itemToReturn.Fields = append(itemToReturn.Fields, &itemField)
 				}
 
 				itemToReturn.ID = expectedItem.ID
@@ -119,41 +107,6 @@ func setupTestServer(expectedItem *onepassword.Item, expectedVault onepassword.V
 				}
 			} else {
 				t.Errorf("Unexpected request: %s Consider adding this endpoint to the test server", r.URL.String())
-			}
-		} else if r.Method == http.MethodPut {
-			if r.URL.String() == fmt.Sprintf("/v1/vaults/%s/items/%s", expectedItem.Vault.ID, expectedItem.ID) {
-				itemToReturn := convertBodyToItem(r, t)
-				itemToReturn.ID = expectedItem.ID
-
-				//var usernameRequested, usernameSet *onepassword.ItemField
-				var usernameRequestedIndex, usernameSetIndex *int
-				for i, f := range itemToReturn.Fields {
-					if f == nil {
-						continue
-					}
-					if f.Label == "username" {
-						*usernameRequestedIndex = i
-					}
-				}
-				for i, f := range expectedItem.Fields {
-					if f == nil {
-						continue
-					}
-					if f.Label == "username" {
-						*usernameSetIndex = i
-					}
-				}
-
-				itemBytes, err := json.Marshal(itemToReturn)
-
-				if err != nil {
-					t.Errorf("error marshaling item for testing: %s", err)
-				}
-				w.Header().Set("Content-Type", "application/json")
-				_, err = w.Write(itemBytes)
-				if err != nil {
-					t.Errorf("error writing body: %s", err)
-				}
 			}
 		} else if r.Method == http.MethodDelete {
 			w.WriteHeader(http.StatusNoContent)
