@@ -29,6 +29,7 @@ func test1PasswordConnection(connectUrl, token, vault string) bool {
 	v, err := client.GetVaultByTitle(vault)
 	fmt.Println(v)
 	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 	return true
@@ -36,6 +37,10 @@ func test1PasswordConnection(connectUrl, token, vault string) bool {
 
 func TestItemResourceIntegrationUsername(t *testing.T) {
 
+	opEndpoint, exists := os.LookupEnv("TF_VAR_one_password_connect_endpoint")
+	if !exists {
+		opEndpoint = "http://localhost:8080"
+	}
 	token, err := aws.GetSecretValueE(t, "eu-central-1", "onepassword-token")
 	if err != nil {
 		panic(err)
@@ -108,7 +113,7 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			docker.RunDockerCompose(t, dockerOptions, "build", "--no-cache")
 			docker.RunDockerCompose(t, dockerOptions, "up", "-d")
 
-			ok := test1PasswordConnection("http://localhost:8080", token, target_vault)
+			ok := test1PasswordConnection(opEndpoint, token, target_vault)
 			if !ok {
 				docker.RunDockerCompose(t, dockerOptions, "down", "--remove-orphans")
 				return errors.New("1Password test connection failed")
@@ -158,9 +163,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			{
 				PreConfig: func() {
 					fmt.Println("1. step\nTerraform code:")
-					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem))
+					fmt.Println(integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItem))
 				},
-				Config: integrationLoginProviderConfig("http://localhost:8080" /*testServer.URL*/) + integrationLoginResourceConfig(expectedItem),
+				Config: integrationLoginProviderConfig(opEndpoint /*testServer.URL*/) + integrationLoginResourceConfig(expectedItem),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// verify local values
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItem.Title),
@@ -174,7 +179,7 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 				PreConfig: func() {
 					fmt.Println("2. step\noverride the username manually")
 
-					item, err := getItemByName("http://localhost:8080", token, target_vault, title)
+					item, err := getItemByName(opEndpoint, token, target_vault, title)
 					if err != nil || item == nil {
 						t.Error(err)
 					}
@@ -187,7 +192,7 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 						},
 					}
 
-					item, err = setItem("http://localhost:8080", token, target_vault, item)
+					item, err = setItem(opEndpoint, token, target_vault, item)
 					if err != nil {
 						t.Error(err)
 					}
@@ -195,9 +200,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 					spew.Dump(item)
 
 					fmt.Println("Terraform code:")
-					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem))
+					fmt.Println(integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItem))
 				},
-				Config: integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItem),
+				Config: integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItem),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItem.Title),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItem.Category))),
@@ -205,7 +210,7 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "url", manuallySetUrl),
 					resource.TestCheckResourceAttrSet("onepassword_item.test-database", "password"),
 					func(*terraform.State) error {
-						item, err := getItemByName("http://localhost:8080", token, target_vault, title)
+						item, err := getItemByName(opEndpoint, token, target_vault, title)
 						if err != nil || item == nil {
 							return err
 						}
@@ -229,9 +234,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			{
 				PreConfig: func() {
 					fmt.Println("3. step\noverride the username with Terraform\nTerraform code:")
-					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdate))
+					fmt.Println(integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItemUpdate))
 				},
-				Config: integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdate),
+				Config: integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItemUpdate),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItemUpdate.Title),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItemUpdate.Category))),
@@ -243,9 +248,9 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 			{
 				PreConfig: func() {
 					fmt.Println("4. step\nunset the username with Terraform\nTerraform code:")
-					fmt.Println(integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdateReset))
+					fmt.Println(integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItemUpdateReset))
 				},
-				Config: integrationLoginProviderConfig("http://localhost:8080") + integrationLoginResourceConfig(expectedItemUpdateReset),
+				Config: integrationLoginProviderConfig(opEndpoint) + integrationLoginResourceConfig(expectedItemUpdateReset),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "title", expectedItemUpdateReset.Title),
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "category", strings.ToLower(string(expectedItemUpdateReset.Category))),
@@ -254,7 +259,7 @@ func TestItemResourceIntegrationUsername(t *testing.T) {
 					resource.TestCheckResourceAttr("onepassword_item.test-database", "url", ""),
 					resource.TestCheckResourceAttrSet("onepassword_item.test-database", "password"),
 					func(*terraform.State) error {
-						item, err := getItemByName("http://localhost:8080", token, target_vault, title)
+						item, err := getItemByName(opEndpoint, token, target_vault, title)
 						if err != nil || item == nil {
 							return err
 						}

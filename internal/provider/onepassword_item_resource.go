@@ -618,6 +618,10 @@ func itemToData(ctx context.Context, item *op.Item, data *OnePasswordItemResourc
 			}
 		}
 	}
+	// we set username to be a known null value just in case it hasn't been set above
+	if data.Username.IsUnknown() {
+		data.Username = types.StringNull()
+	}
 
 	if item.Category == op.SecureNote && data.Password.IsUnknown() {
 		data.Password = types.StringNull()
